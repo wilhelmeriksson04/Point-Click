@@ -3,48 +3,55 @@ using UnityEditor;
 using System.IO;
 
 // Unity menu: Point-Click ▸ Create ClickableArea Prefab
-//             Point-Click ▸ Create FirstPersonCamera Prefab
-//
-// Run either item once — it writes a prefab to Assets/Prefabs/ that you can
-// then drag directly into any scene.
+//             Point-Click ▸ Setup Camera in Scene
 public static class PointClickSetup
 {
     const string PrefabFolder = "Assets/Prefabs";
 
     // ── ClickableArea ────────────────────────────────────────────────────────
+    // Creates an invisible, flat BoxCollider-only prefab.
+    // Scale it freely on X/Z to cover any floor area — nothing is rendered.
     [MenuItem("Point-Click/Create ClickableArea Prefab")]
     public static void CreateClickableAreaPrefab()
     {
         EnsureFolder(PrefabFolder);
 
-        // A Unity Plane sits flat on the XZ plane and already has a MeshCollider.
-        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Plane);
-        go.name = "ClickableArea";
-
+        GameObject go = new GameObject("ClickableArea");
         go.layer = LayerMask.NameToLayer("Default");
-        go.AddComponent<ClickableArea>();
 
-        // The built-in Plane is 10 × 10 world-units at scale (1,1,1).
-        // Scale it down to 1 × 1 so the user starts with predictable sizing.
-        go.transform.localScale = new Vector3(0.1f, 1f, 0.1f);
+        BoxCollider col = go.AddComponent<BoxCollider>();
+        col.size = new Vector3(1f, 0.02f, 1f); // flat slab, 1×1 at default scale
+        col.isTrigger = false;                  // must be solid for Physics.Raycast
+
+        go.AddComponent<ClickableArea>();
 
         SavePrefab(go, PrefabFolder + "/ClickableArea.prefab");
         Object.DestroyImmediate(go);
     }
 
-    // ── FirstPersonCamera ────────────────────────────────────────────────────
-    [MenuItem("Point-Click/Create FirstPersonCamera Prefab")]
-    public static void CreateFirstPersonCameraPrefab()
+    // ── Setup Camera in Scene ────────────────────────────────────────────────
+    // Adds FirstPersonController to the Main Camera already in your scene.
+    // Run this once — no prefab needed, the component lives on the camera.
+    [MenuItem("Point-Click/Setup Camera in Scene")]
+    public static void SetupCameraInScene()
     {
-        EnsureFolder(PrefabFolder);
+        Camera cam = Camera.main;
 
-        GameObject root = new GameObject("FirstPersonCamera");
-        root.AddComponent<Camera>();
-        root.AddComponent<AudioListener>();
-        root.AddComponent<FirstPersonController>();
+        if (cam == null)
+        {
+            Debug.LogError("[Point-Click] No Main Camera found. Make sure your camera is tagged 'MainCamera'.");
+            return;
+        }
 
-        SavePrefab(root, PrefabFolder + "/FirstPersonCamera.prefab");
-        Object.DestroyImmediate(root);
+        if (cam.GetComponent<FirstPersonController>() != null)
+        {
+            Debug.LogWarning("[Point-Click] FirstPersonController is already on the Main Camera.");
+            return;
+        }
+
+        cam.gameObject.AddComponent<FirstPersonController>();
+        EditorUtility.SetDirty(cam.gameObject);
+        Debug.Log($"[Point-Click] FirstPersonController added to '{cam.gameObject.name}'.");
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
